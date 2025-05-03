@@ -8,3 +8,12 @@ export const errorHandler = (err, req, res, next) => {
     stack: err.stack,
   });
 };
+
+export class appError extends Error {
+  constructor(message, statusCode) {
+    super(message);
+    this.statusCode = statusCode || 500;
+    this.status = `${statusCode}`.startsWith(4) ? "fail" : "error";
+    Error.captureStackTrace(this);
+  }
+}

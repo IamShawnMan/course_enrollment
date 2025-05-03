@@ -1,61 +1,59 @@
 import { config } from "../config/config.js";
 import { generateToken } from "../library/generateToken.js";
 import { User } from "../models/index.js";
-import bcrypt from "bcrypt";
+import { appError } from "../utils/errorHandler.js";
+import { encode, decode } from "../utils/encode-decode.js";
+import { userValidator } from "../validators/user.validation.js";
 
 export const userController = {
   register: async (req, res, next) => {
     try {
-      const data = req.body;
+      const { error, value } = userValidator(req.body);
+      if (error) {
+        throw new appError("Validation error");
+      }
       const user = await User.findOne(
         {
-          email: data.email,
+          email: value.email,
         },
         "email _id"
       ).exec();
-      if (!user) {
-        const { password } = req.body;
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({
-          ...req.body,
-          password: hashedPassword,
-        });
-
-        await newUser.save();
-
-        res.json({
-          status: "success",
-          message: "New user created",
-          error: null,
-          data: {
-            newUser,
-          },
-        });
+      if (user) {
+        throw new appError("User with this email already exist", 400);
       }
 
+      const { password } = value;
+      const hashedPassword = await encode(password);
+      const newUser = new User({
+        ...value,
+        password: hashedPassword,
+      });
+
+      await newUser.save();
+
       res.json({
-        status: "fail",
-        message: "User with this email is already exist",
-        error: "User already exist",
+        status: "success",
+        message: "New user created",
+        error: null,
         data: {
-          user,
+          newUser,
         },
       });
     } catch (error) {
-      console.log(error);
+      next(error);
     }
   },
+
   login: async (req, res, next) => {
     try {
       const { email, password } = req.body;
       const user = await User.findOne({
-        email: email,
+        email,
       });
       if (!user) {
-        res.send("User not found");
-        return;
+        throw new appError("User not found", 404);
       }
-      const validPassword = await user.isValidPassword(password, user);
+      const validPassword = await decode(password, user.password);
 
       if (!validPassword) {
         res.status(401).send("User detail wrong");
@@ -86,9 +84,12 @@ export const userController = {
           },
         },
       });
-    } catch (error) {}
+    } catch (error) {
+      next(error);
+    }
   },
-  allUsers: async (req, res, next) => {
+
+  allUsers: async (_, res, next) => {
     try {
       const allUsers = await User.find({})
         .populate("enrolledCourses", "title description")
@@ -103,7 +104,50 @@ export const userController = {
         },
       });
     } catch (error) {
-      console.log(error);
+      next(error);
     }
+  },
+
+  getById: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const user = await User.findById(id, "_id email name enrolledCourses")
+        .populate("courses")
+        .exec();
+
+      if (!user) {
+        throw new appError("User not found");
+      }
+      res.json({
+        status: "success",
+        message: "User by id",
+        data: user,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  getMyCourses: async (req, res, next) => {
+    try {
+      const { id } = req.user;
+      const me = await User.findById(id, "_id email name enrolledCourses")
+        .populate("courses")
+        .exec();
+      if (!me) {
+        throw new appError("Error on getting users data", 404);
+      }
+      res.json({
+        status: "success",
+        message: "My details",
+        data: me,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+  updateUser: async (req, res, next) => {
+    try {
+    } catch (error) {}
   },
 };

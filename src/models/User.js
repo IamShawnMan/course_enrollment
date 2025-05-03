@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema(
     enrolledCourses: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Course",
-      required: true,
+      default: null,
     },
   },
   {
