@@ -1,7 +1,8 @@
-export const errorHandler = (err, req, res, next) => {
+import logger from "./logger/logger.js";
+export const errorHandler = (err, _, res, _) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || "Internal server error";
-
+  logger.error(`Error ${err}`);
   res.status(statusCode).json({
     status: "error",
     message,
